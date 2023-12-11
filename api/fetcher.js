@@ -88,9 +88,10 @@ function getProvider({ p, e }) {
 /**
  * @returns {string} (cache-backed) html content of mensaplan
  */
-function getMensaPlanHTML({ p, e, kw = getCalendarWeek() }) {
+function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined }) {
 	return new Promise(async function (resolve, reject) {
-		const provider = getProvider({ p, e });
+		if(!provider)
+			provider = getProvider({ p, e });
 		if (!provider) {
 			reject('404');
 		}
