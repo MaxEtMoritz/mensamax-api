@@ -1,5 +1,4 @@
 const cheerio = require('cheerio');
-const minify = require('html-minifier').minify;
 function chunk(arr, len) {
 	let chunks = [];
 	let i = 0;
@@ -27,106 +26,69 @@ exports.parser = (input) => {
 		try {
 			let tmp = cheerio.load(input);
 			const timeRange = tmp('#lblWoche').text();
+			const hinweis = tmp('#lblSpeiesplanHinweis').text();
 			// drop all attributes + unneeded elements for better parsing
 			tmp('*')
 				.removeAttr('style')
-				.removeAttr('class')
 				.removeAttr('valign')
 				.removeAttr('colspan')
 				.removeAttr('align')
 				.removeAttr('border')
 				.removeAttr('cellpadding')
-				.removeAttr('alt')
-				.removeAttr('title')
 				.removeAttr('onclick');
 			tmp('img').parent().remove();
 			tmp('input').remove();
 			tmp('script').remove();
 			tmp('#strDetails').parent().parent().remove();
-			tmp('td').removeAttr('id');
-			tmp('tr').removeAttr('id');
-			tmp = tmp('#tblMain').parent().html();
-			tmp = tmp.replaceAll('<td>•&nbsp;</td>', '');
-			// minify html for easier parsing
-			tmp = minify(tmp, {
-				useShortDoctype: true,
-				minifyCSS: true,
-				collapseWhitespace: true
-			});
-			// remove empty food items
-			tmp = tmp.replaceAll('<tr><td></td></tr>', '');
-			// remove empty row at end of table
-			tmp = tmp.replaceAll(
-				'<td></td><td></td><td></td><td></td><td></td>',
-				''
-			);
-			// replace tr,div,td with food+day elements for readability
-			tmp = tmp.replaceAll(
-				'<td></td><td></td><td></td><td></td><td></td>',
-				''
-			);
-			tmp = tmp.replaceAll(
-				'</div></td></tr></tbody></table></td></tr></tbody></table></td><td><table><tbody><tr><td><table><tbody><tr><td><div>',
-				'</food></day><day><food>'
-			);
-			tmp = tmp.replaceAll(
-				'<td><table><tbody><tr><td><table><tbody><tr><td><div>',
-				'<day><food>'
-			);
-			tmp = tmp.replaceAll(
-				'</div></td></tr><tr><td><div>',
-				'</food><food>'
-			);
-			tmp = tmp.replaceAll(
-				'</div></td></tr></tbody></table></td></tr></tbody></table></td>',
-				'</food></day>'
-			);
-			tmp = tmp.replaceAll(
-				'</day><td></td><food>',
-				'</day><day></day><day><food>'
-			);
-			tmp = tmp.replaceAll('<td></td>', '<day></day>');
-			tmp = tmp.replaceAll('</tr><tr>', '');
-			tmp = tmp.replaceAll('</th><td>', '</tr></th><td>');
-			// fix end of file invalid markup
-			tmp = tmp.replaceAll('</tr></tbody></table>', '</tbody></table>');
-			// remove leading IDs from foods
-			tmp = tmp.replaceAll(/<food>\d+ /g, '<food>');
-			// remove trailing whitespace from foods
-			tmp = tmp.replaceAll(' <sub>', '<sub>');
-			// at this point, the html/ xml in 'tmp' is pretty readable
-			// begin parsing: load html into cheerio object
-			let $ = cheerio.load(input);
-			const hinweis = $('#lblSpeiesplanHinweis').text();
+			tmp('table[id^=tblrating]').parent().parent().remove();
+			let $ = cheerio.load(tmp('#tblMain').html(), null, false);
 			let days = [];
 			$('.tdHeader th').each((i, e) => {
 				days.push($(e).html());
 			});
 			days = days.filter((h) => h !== '');
-			// load preprocessed html into cheerio object
-			$ = cheerio.load(tmp);
-			// parse markup to arrays
-			const $1 = cheerio.load(tmp);
 			let categories = [];
 			let elements = [];
-			$1('td').each(function (index, element) {
-				categories.push($1(element).text());
-			});
-			$1('day').each(function (index, element) {
-				const $2 = cheerio.load($1(element).html());
-				let items = [];
-				$2('food').each(function (index, element) {
-					const $3 = cheerio.load($2(element).html());
-					let additives_allergies = [];
-					$3('span').each(function (index, element) {
-						additives_allergies.push($3(element).text());
-					});
-					$3('sub').remove();
-					items.push({ title: $3.text(), additives_allergies });
+			$.root()
+				.children('tbody')
+				.children('tr')
+				.each((i, category) => {
+					let $c = $(category);
+					if (!$c.text().trim()) {
+						return;
+					} else {
+						$c.children('td').each((i, day) => {
+							let $d = $(day);
+							if ($d.children().length == 0) {
+								if (!categories.includes($d.text().trim())) {
+									categories.push($d.text().trim());
+									return;
+								}
+							} else {
+								let items = [];
+								$d.find('div').each((i, meal) => {
+									let $m = $(meal);
+									let allergens = [];
+									$m.find('sub>span').each((i, all) => {
+										allergens.push($(all).attr('title'));
+									});
+									$m.children('sub').remove();
+									let title = $m
+										.text()
+										.trim()
+										.replace(/^\d[^\s]+/, '')
+										.trim();
+									items.push({
+										title,
+										additives_allergies: allergens
+									});
+								});
+								elements.push(items);
+							}
+						});
+					}
 				});
-				elements.push(items);
-			});
-			$ = cheerio.load(input);
+
 			const elements_unchunked = elements;
 			elements = chunk(elements, days.length);
 			// parse elements into final json structure
