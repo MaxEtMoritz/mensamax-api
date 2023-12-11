@@ -86,14 +86,17 @@ function getProvider({ p, e }) {
 	return f.provider;
 }
 /**
- * @returns {string} (cache-backed) html content of mensaplan
+ * @returns {{__EVENTVALIDATION:string,__VIEWSTATE:string,__VIEWSTATEGENERATOR:string,kw:string,data:string}} (cache-backed) html content of mensaplan
  */
-function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined }) {
+function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined, __EVENTVALIDATION=undefined, __VIEWSTATE=undefined, __VIEWSTATEGENERATOR=undefined, nextWeek=false }) {
 	return new Promise(async function (resolve, reject) {
 		if(!provider)
 			provider = getProvider({ p, e });
 		if (!provider) {
 			reject('404');
+		}
+		if(nextWeek){
+			kw++
 		}
 		let cache = undefined;
 		if (process.env.CACHE !== 'none') {
@@ -105,8 +108,13 @@ function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined }
 			const d = await fetchHTML({
 				p,
 				e,
+				provider,
 				kw,
-				provider
+				auth: Boolean(__EVENTVALIDATION) && Boolean(__VIEWSTATE) && Boolean(__VIEWSTATEGENERATOR),
+				nextWeek,
+				__EVENTVALIDATION,
+				__VIEWSTATE,
+				__VIEWSTATEGENERATOR
 			});
 			updateCacheItem(`${p}_${e}_${provider}_${kw}`, d);
 			resolve(d);
@@ -115,7 +123,7 @@ function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined }
 }
 // =========
 /**
- * @returns {string} html content of mensaplan
+ * @returns {{__EVENTVALIDATION:string,__VIEWSTATE:string,__VIEWSTATEGENERATOR:string,kw:string,data:string}} html content + previous state of mensaplan
  */
 async function fetchHTML({
 	p,
@@ -175,8 +183,8 @@ async function fetchHTML({
 		});
 	}
 	//
-	const kwText = $('#lblWoche').text();
-	if (kwText.includes(`(KW${kw})`)) return data;
+	const kwText = $('#lblWoche').text().match(/\(KW(\d+)\)/)[1];
+	/*if (kwText.includes(`(KW${kw})`))*/ return {__EVENTVALIDATION, __VIEWSTATE, __VIEWSTATEGENERATOR, data, kw: kwText};
 	return await fetchHTML({
 		p,
 		e,
