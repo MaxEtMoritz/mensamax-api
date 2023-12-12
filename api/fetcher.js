@@ -5,7 +5,7 @@ const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 const institutions = require('../institutions.json');
 const jar = new CookieJar();
-const client = wrapper(axios.create({ jar }));
+const client = wrapper(axios.create({ jar, timeout: 30_000 }));
 // =========
 process.env.CACHE_TIME_MINUTES = parseInt(process.env.CACHE_TIME_MINUTES || 1);
 // =========
@@ -123,7 +123,7 @@ function getMensaPlanHTML({ p, e, kw = getCalendarWeek(), provider = undefined, 
 }
 // =========
 /**
- * @returns {{__EVENTVALIDATION:string,__VIEWSTATE:string,__VIEWSTATEGENERATOR:string,kw:string,data:string}} html content + previous state of mensaplan
+ * @returns {Promise<{__EVENTVALIDATION:string,__VIEWSTATE:string,__VIEWSTATEGENERATOR:string,kw:string,data:string}>} html content + previous state of mensaplan
  */
 async function fetchHTML({
 	p,
@@ -152,11 +152,14 @@ async function fetchHTML({
 		requestMethod = 'POST';
 	}
 	if (nextWeek) {
+		if(!requestData)
+			requestData = {}
 		requestData.btnVor = '>';
 		requestData.__EVENTARGUMENT = '';
 		requestData.__EVENTTARGET = '';
 		url = `https://${provider}/mensamax/Wochenplan/WochenplanExtern/WochenPlanExternForm.aspx`;
 	}
+	//console.debug('requesting', requestMethod, url, requestData, p, e)
 	const { data } = await client.request({
 		url,
 		params: { p, e },
@@ -166,6 +169,22 @@ async function fetchHTML({
 		},
 		data: requestData
 	});
+	if(data.includes('Ihre Sitzung ist abgelaufen')){
+		// establish new session
+		// maybe rate limit?
+		console.debug('session expired')
+		await new Promise(resolve=>setTimeout(resolve,2000));
+		return await fetchHTML({
+			p,
+			e,
+			provider,
+			kw,
+			nextWeek
+		})
+	}
+	if(data.includes('Projekt nicht vorhanden') || data.includes('Falsche Eingabe der URL')){
+		throw new Error('Wrong input! Canteen probably no longer exists.')
+	}
 	const $ = cheerio.load(data);
 	__EVENTVALIDATION = $('#__EVENTVALIDATION').val();
 	__VIEWSTATE = $('#__VIEWSTATE').val();
@@ -183,7 +202,10 @@ async function fetchHTML({
 		});
 	}
 	//
-	const kwText = $('#lblWoche').text().match(/\(KW(\d+)\)/)[1];
+	let kwText = $('#lblWoche').text()
+	if(!kwText.match(/\(KW(\d+)\)/))
+		throw new Error('MensaMax Error: '+$('#lblFehler').text())
+	kwText = kwText.match(/\(KW(\d+)\)/)[1]
 	/*if (kwText.includes(`(KW${kw})`))*/ return {__EVENTVALIDATION, __VIEWSTATE, __VIEWSTATEGENERATOR, data, kw: kwText};
 	return await fetchHTML({
 		p,

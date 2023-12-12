@@ -29,7 +29,6 @@ exports.parser = (input) => {
 			const hinweis = tmp('#lblSpeiesplanHinweis').text();
 			// drop all attributes + unneeded elements for better parsing
 			tmp('*')
-				.removeAttr('style')
 				.removeAttr('valign')
 				.removeAttr('colspan')
 				.removeAttr('align')
@@ -60,9 +59,14 @@ exports.parser = (input) => {
 						$c.children('td').each((i, day) => {
 							let $d = $(day);
 							if ($d.children().length == 0) {
-								if (!categories.includes($d.text().trim())) {
-									categories.push($d.text().trim());
-									return;
+								if($d.attr('style')?.includes('font-weight:bold')){
+									if (!categories.includes($d.text().trim())) {
+										categories.push($d.text().trim());
+										return;
+									}
+								} else {
+									elements.push([])
+									return
 								}
 							} else {
 								let items = [];
