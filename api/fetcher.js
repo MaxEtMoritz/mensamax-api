@@ -182,10 +182,9 @@ async function fetchHTML({
 			nextWeek
 		})
 	}
-	if(data.includes('Projekt nicht vorhanden') || data.includes('Falsche Eingabe der URL')){
-		throw new Error('Wrong input! Canteen probably no longer exists.')
-	}
 	const $ = cheerio.load(data);
+	if(data.includes('lblFehler')|| data.includes('lblHinweis'))
+		throw new Error('MensaMax Error: ' + $('#lblHinweis').text() || $('#lblFehler').text())
 	__EVENTVALIDATION = $('#__EVENTVALIDATION').val();
 	__VIEWSTATE = $('#__VIEWSTATE').val();
 	__VIEWSTATEGENERATOR = $('#__VIEWSTATEGENERATOR').val();
