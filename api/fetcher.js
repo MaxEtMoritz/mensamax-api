@@ -183,7 +183,7 @@ async function fetchHTML({
 		})
 	}
 	const $ = cheerio.load(data);
-	if(data.includes('lblFehler')|| data.includes('lblHinweis'))
+	if($('#lblHinweis').text() || $('#lblFehler').text())
 		throw new Error('MensaMax Error: ' + $('#lblHinweis').text() || $('#lblFehler').text())
 	__EVENTVALIDATION = $('#__EVENTVALIDATION').val();
 	__VIEWSTATE = $('#__VIEWSTATE').val();
