@@ -26,7 +26,8 @@ exports.parser = (input) => {
 		try {
 			let tmp = cheerio.load(input);
 			const timeRange = tmp('#lblWoche').text();
-			const hinweis = tmp('#lblSpeiesplanHinweis').text();
+			const hasNext = tmp('#btnVor').attr('disabled') ? false : true;
+			const hasPrev = tmp('#btnZurueck').attr('disabled') ? false : true;
 			// drop all attributes + unneeded elements for better parsing
 			tmp('*')
 				.removeAttr('valign')
@@ -59,14 +60,20 @@ exports.parser = (input) => {
 						$c.children('td').each((i, day) => {
 							let $d = $(day);
 							if ($d.children().length == 0) {
-								if($d.attr('style')?.includes('font-weight:bold')){
-									if (!categories.includes($d.text().trim())) {
+								if (
+									$d
+										.attr('style')
+										?.includes('font-weight:bold')
+								) {
+									if (
+										!categories.includes($d.text().trim())
+									) {
 										categories.push($d.text().trim());
 										return;
 									}
 								} else {
-									elements.push([])
-									return
+									elements.push([]);
+									return;
 								}
 							} else {
 								let items = [];
@@ -112,12 +119,14 @@ exports.parser = (input) => {
 			});
 			resolve({
 				json: out,
-				html: tmp,
-				hinweis,
+				// html: tmp,
+				// hinweis,
 				categories,
 				timeRange,
 				days,
-				elements_unchunked
+				elements_unchunked,
+				hasNext,
+				hasPrev
 			});
 		} catch (e) {
 			reject(e);
