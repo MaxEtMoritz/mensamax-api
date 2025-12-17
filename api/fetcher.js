@@ -1,6 +1,6 @@
 require('dotenv').config();
 const cheerio = require('cheerio');
-const axios = require('axios').default;
+const axios = require('axios');
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 const institutions = require('../institutions.json');
@@ -218,5 +218,16 @@ async function fetchHTML({
 		__VIEWSTATEGENERATOR
 	});
 }
+
+async function fetchImpressum(provider, p, e){
+	const response = await client.request({
+		url: `https://${provider}/ImpressumForm.aspx`,
+		params: { projekt:p, einrichtung:e },
+		method: 'GET',
+	});
+	if(response.status != 200) throw new Error(`HTTP ${response.status} - ${response.statusText}`)
+	return response.data;
+}
 exports.getMensaPlanHTML = getMensaPlanHTML;
 exports.fetchHTML = fetchHTML;
+exports.fetchImpressum = fetchImpressum;

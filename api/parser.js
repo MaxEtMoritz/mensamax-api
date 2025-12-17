@@ -133,3 +133,26 @@ exports.parser = (input) => {
 		}
 	});
 };
+
+exports.parseImpressum = async (input) => {
+	var $ = cheerio.load(input);
+	let active = false;
+	let data = {};
+	var a = $('#divInput table tbody');
+	var b = a.children('tr');
+	b.each((i, tr) => {
+		var c = $('td', tr);
+		if (c.length == 1)
+			if ($(c[0]).text().includes('inhaltlich verantwortlich')) active = true;
+			else active = false;
+		else if (active) {
+			if (c.length != 2)
+				throw new Error(
+					'Unexpected number of table rows. Expected 2 trs but got ' +
+						c
+				);
+			data[$(c[0]).text().replace(":","")] = $(c[1]).text().trim();
+		}
+	});
+	return data;
+};
